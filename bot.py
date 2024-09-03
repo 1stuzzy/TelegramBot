@@ -2,9 +2,9 @@ from aiogram import executor
 from aiogram.types import Message, CallbackQuery, ContentType
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from loader import dp, channel
+from loader import dp, moderation
 
-from keyboards import menu_keyboard, back_btn
+from keyboards import menu_keyboard, back_btn, moderation_keyboard
 from states import Form
 import texts
 
@@ -44,7 +44,7 @@ async def process_response(message: Message, state: FSMContext):
 
     if message.content_type == ContentType.TEXT:
         await dp.bot.send_message(
-            channel,
+            moderation,
             texts.notify_sended.format(
                 user_link=texts.user_link.format(user_id=message.from_user.id,
                                                  name=message.from_user.full_name,
@@ -56,14 +56,15 @@ async def process_response(message: Message, state: FSMContext):
 
     elif message.content_type == ContentType.PHOTO:
         photo_id = message.photo[-1].file_id
-        await dp.bot.send_photo(channel,
+        await dp.bot.send_photo(moderation,
                                 photo=photo_id,
                                 caption=texts.notify_sended.format(user_link=texts.user_link.format(user_id=message.from_user.id,
                                                                                                     name=message.from_user.full_name,
                                                                                                     username=message.from_user.username),
-                                                                   caption_text=message.caption if message.caption else ''))
+                                                                   message=message.caption if message.caption else ''))
 
-    await dp.bot.delete_message(chat_id=message.chat.id, message_id=response_message_id,)
+    if response_message_id:
+        await dp.bot.delete_message(chat_id=message.chat.id, message_id=response_message_id)
 
     await message.answer_sticker(texts.sticker_id)
     await message.answer(texts.message_send_admin,
@@ -77,11 +78,12 @@ async def process_screenshot_review(message: Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
 
     await dp.bot.send_photo(
-        channel,
+        moderation,
         photo=photo_id,
         caption=texts.review_send_admin.format(user_link=texts.user_link.format(user_id=message.from_user.id,
                                                                                 name=message.from_user.full_name,
-                                                                                username=message.from_user.username)))
+                                                                                username=message.from_user.username)),
+        reply_markup=moderation_keyboard(user=message.from_user.id))
 
     await message.answer_sticker(texts.sticker_id)
     await message.answer(texts.screenshot_send_user,
@@ -98,6 +100,35 @@ async def back_menu(call: CallbackQuery, state=FSMContext):
 
     await call.message.edit_text(texts.welcome_text,
                                  reply_markup=menu_keyboard())
+
+    await call.answer()
+
+
+@dp.callback_query_handler(lambda call: call.data.startswith("accept_"))
+async def process_moderation(call: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.finish()
+
+    decision = call.data.split("_")[1]
+
+    if decision == "True":
+        response_text = "Отзыв подтвержден ✅"
+        notification_text = texts.notification_true_text
+    else:
+        response_text = "Отзыв отклонен ❌"
+        notification_text = texts.notification_false_text
+
+    await call.message.edit_reply_markup(reply_markup=None)
+    await call.message.reply(response_text)
+
+    submitter_id = call.data.split("_")[2]
+
+    if submitter_id:
+        try:
+            await dp.bot.send_message(submitter_id, notification_text)
+        except Exception:
+            return False
 
     await call.answer()
 
