@@ -47,7 +47,8 @@ async def process_response(message: Message, state: FSMContext):
             channel,
             texts.notify_sended.format(
                 user_link=texts.user_link.format(user_id=message.from_user.id,
-                                                 name=message.from_user.full_name),
+                                                 name=message.from_user.full_name,
+                                                 username=message.from_user.username),
                 message=message.text
             ),
             disable_web_page_preview=True
@@ -58,7 +59,8 @@ async def process_response(message: Message, state: FSMContext):
         await dp.bot.send_photo(channel,
                                 photo=photo_id,
                                 caption=texts.notify_sended.format(user_link=texts.user_link.format(user_id=message.from_user.id,
-                                                                                                      name=message.from_user.full_name),
+                                                                                                    name=message.from_user.full_name,
+                                                                                                    username=message.from_user.username),
                                                                    caption_text=message.caption if message.caption else ''))
 
     await dp.bot.delete_message(chat_id=message.chat.id, message_id=response_message_id,)
@@ -78,7 +80,8 @@ async def process_screenshot_review(message: Message, state: FSMContext):
         channel,
         photo=photo_id,
         caption=texts.review_send_admin.format(user_link=texts.user_link.format(user_id=message.from_user.id,
-                                                                                name=message.from_user.full_name)))
+                                                                                name=message.from_user.full_name,
+                                                                                username=message.from_user.username)))
 
     await message.answer_sticker(texts.sticker_id)
     await message.answer(texts.screenshot_send_user,
